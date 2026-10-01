@@ -1,7 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { EmergencyVehicle, MotoristVehicle, TrafficSignal } from '../types/emergency';
 import { Language, translations } from '../locales/translations';
-import { Play, Pause, RotateCcw, Volume2, ShieldAlert, Sparkles, Navigation, Info } from 'lucide-react';
+import { 
+  Play, 
+  Pause, 
+  RotateCcw, 
+  Volume2, 
+  ShieldAlert, 
+  Sparkles, 
+  Navigation, 
+  Info,
+  Flame,
+  Layers,
+  Activity
+} from 'lucide-react';
 import { ROAD_LENGTH, CORRIDOR_Y, LANE_HEIGHT } from '../services/corridorSimulation';
 
 interface CorridorMapProps {
@@ -34,7 +46,93 @@ export const CorridorMap: React.FC<CorridorMapProps> = ({
   onUserYield,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<'fit' | 'follow_ambulance' | 'follow_user'>('fit');
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
+  const [heatmapMode, setHeatmapMode] = useState<'combined' | 'bands' | 'hotspots'>('combined');
   const t = translations[lang];
+
+  // Calculate real-time density metrics per lane
+  const laneCounts = useMemo(() => {
+    const counts = { left: 0, center: 0, right: 0 };
+    motorists.forEach((m) => {
+      if (m.currentLane === 'left') counts.left++;
+      else if (m.currentLane === 'right') counts.right++;
+      else counts.center++;
+    });
+    return counts;
+  }, [motorists]);
+
+  // Segment corridor into 9 spatial bins (200m each) per lane for localized density
+  const SEGMENT_COUNT = 9;
+  const SEGMENT_WIDTH = ROAD_LENGTH / SEGMENT_COUNT;
+
+  const segmentDensities = useMemo(() => {
+    // 3 lanes x 9 segments
+    const lanes: Array<'left' | 'center' | 'right'> = ['left', 'center', 'right'];
+    const data: Array<{
+      lane: 'left' | 'center' | 'right';
+      segIdx: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      count: number;
+      densityLevel: 'low' | 'moderate' | 'high';
+      color: string;
+      fillOpacity: number;
+    }> = [];
+
+    lanes.forEach((lane) => {
+      let laneY = CORRIDOR_Y;
+      if (lane === 'left') laneY = CORRIDOR_Y - LANE_HEIGHT;
+      if (lane === 'right') laneY = CORRIDOR_Y + LANE_HEIGHT;
+
+      for (let i = 0; i < SEGMENT_COUNT; i++) {
+        const segStartX = i * SEGMENT_WIDTH;
+        const segEndX = (i + 1) * SEGMENT_WIDTH;
+
+        // Count motorists in this segment & lane
+        const count = motorists.filter(
+          (m) =>
+            m.currentLane === lane &&
+            m.position.x >= segStartX &&
+            m.position.x < segEndX
+        ).length;
+
+        let densityLevel: 'low' | 'moderate' | 'high' = 'low';
+        let color = '#10b981'; // Cyan-emerald for low
+        let fillOpacity = 0.12;
+
+        if (count >= 3) {
+          densityLevel = 'high';
+          color = '#ef4444'; // Crimson for congested
+          fillOpacity = 0.55;
+        } else if (count === 2) {
+          densityLevel = 'moderate';
+          color = '#f59e0b'; // Amber for moderate
+          fillOpacity = 0.38;
+        } else if (count === 1) {
+          densityLevel = 'low';
+          color = '#06b6d4'; // Cyan for light
+          fillOpacity = 0.22;
+        }
+
+        data.push({
+          lane,
+          segIdx: i,
+          x: segStartX,
+          y: laneY - LANE_HEIGHT * 0.5,
+          width: SEGMENT_WIDTH,
+          height: LANE_HEIGHT,
+          count,
+          densityLevel,
+          color,
+          fillOpacity,
+        });
+      }
+    });
+
+    return data;
+  }, [motorists, SEGMENT_WIDTH]);
 
   // Calculate viewBox based on zoom
   let viewBox = `0 140 ${ROAD_LENGTH} 360`;
@@ -69,7 +167,41 @@ export const CorridorMap: React.FC<CorridorMapProps> = ({
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Heatmap Toggle & Mode */}
+          <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-xs">
+            <button
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors cursor-pointer font-medium ${
+                showHeatmap
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Toggle Traffic Density Heatmap"
+            >
+              <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'animate-pulse text-amber-300' : ''}`} />
+              <span>{t.heatmap.toggle}: {showHeatmap ? 'ON' : 'OFF'}</span>
+            </button>
+
+            {showHeatmap && (
+              <div className="flex items-center border-l border-slate-800 ml-1 pl-1">
+                {(['combined', 'bands', 'hotspots'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setHeatmapMode(mode)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-mono capitalize transition-colors cursor-pointer ${
+                      heatmapMode === mode
+                        ? 'bg-slate-800 text-rose-300 font-bold'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {mode === 'combined' ? (lang === 'gu' ? 'બંને' : 'Both') : mode === 'bands' ? (lang === 'gu' ? 'લેન' : 'Lanes') : (lang === 'gu' ? 'ઓરા' : 'Aura')}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* View Modes */}
           <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-xs">
             <button
@@ -141,6 +273,56 @@ export const CorridorMap: React.FC<CorridorMapProps> = ({
         </div>
       </div>
 
+      {/* Heatmap Quick Telemetry Ribbon (Shown when Heatmap is active) */}
+      {showHeatmap && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-slate-950 border-b border-slate-800/80 text-xs font-mono">
+          <div className="flex items-center gap-4">
+            <span className="text-slate-400 font-bold flex items-center gap-1">
+              <Flame className="w-3.5 h-3.5 text-rose-500" />
+              {t.heatmap.title}:
+            </span>
+            <div className="flex items-center gap-3">
+              <span className={`px-2 py-0.5 rounded text-[11px] ${
+                laneCounts.left >= 3
+                  ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                  : laneCounts.left === 2
+                  ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                  : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+              }`}>
+                {t.lanes.lane1.split(' ')[0]} {t.lanes.lane1.split(' ')[1]}: {laneCounts.left} cars
+              </span>
+
+              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                laneCounts.center >= 3
+                  ? 'bg-rose-950 text-rose-200 border border-rose-600 animate-pulse'
+                  : laneCounts.center === 2
+                  ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                  : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+              }`}>
+                {t.lanes.lane2.split(' ')[0]} {t.lanes.lane2.split(' ')[1]} (Corridor): {laneCounts.center} cars {laneCounts.center >= 3 ? `[${t.heatmap.congested}]` : `[${t.heatmap.clear}]`}
+              </span>
+
+              <span className={`px-2 py-0.5 rounded text-[11px] ${
+                laneCounts.right >= 3
+                  ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                  : laneCounts.right >= 2
+                  ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                  : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+              }`}>
+                {t.lanes.lane3.split(' ')[0]} {t.lanes.lane3.split(' ')[1]} (Shoulder): {laneCounts.right} cars
+              </span>
+            </div>
+          </div>
+
+          {/* Thermal Color Gradient Legend */}
+          <div className="flex items-center gap-2 text-[10px] text-slate-400">
+            <span className="text-emerald-400">{t.heatmap.low}</span>
+            <div className="w-24 h-2 rounded-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-600 shadow-inner" />
+            <span className="text-rose-400 font-bold">{t.heatmap.high}</span>
+          </div>
+        </div>
+      )}
+
       {/* Interactive SVG Road Canvas */}
       <div className="relative w-full h-[380px] bg-slate-950 overflow-hidden select-none">
         <svg
@@ -169,6 +351,19 @@ export const CorridorMap: React.FC<CorridorMapProps> = ({
               <feGaussianBlur stdDeviation="8" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
+
+            {/* Thermal Heatmap Gradient & Blur Filter */}
+            <radialGradient id="thermalHeatGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.88" />
+              <stop offset="30%" stopColor="#f97316" stopOpacity="0.65" />
+              <stop offset="60%" stopColor="#eab308" stopOpacity="0.4" />
+              <stop offset="85%" stopColor="#06b6d4" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+            </radialGradient>
+
+            <filter id="heatBlur" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="16" result="blur" />
+            </filter>
           </defs>
 
           {/* Background Terrain & City Blocks */}
@@ -194,6 +389,82 @@ export const CorridorMap: React.FC<CorridorMapProps> = ({
             stroke="#334155"
             strokeWidth="1.5"
           />
+
+          {/* REAL-TIME TRAFFIC DENSITY HEATMAP LAYER */}
+          {showHeatmap && (
+            <g id="realtime-traffic-heatmap" className="transition-opacity duration-300">
+              {/* 1. Lane Density Continuous Segments (Bands) */}
+              {(heatmapMode === 'combined' || heatmapMode === 'bands') && (
+                <g opacity="0.68">
+                  {segmentDensities.map((seg) => (
+                    <g key={`heat-seg-${seg.lane}-${seg.segIdx}`}>
+                      <rect
+                        x={seg.x}
+                        y={seg.y}
+                        width={seg.width}
+                        height={seg.height}
+                        fill={seg.color}
+                        opacity={seg.fillOpacity}
+                        className="transition-all duration-300"
+                      />
+                      {/* High density warning border and subtle pulse */}
+                      {seg.densityLevel === 'high' && (
+                        <rect
+                          x={seg.x + 2}
+                          y={seg.y + 2}
+                          width={seg.width - 4}
+                          height={seg.height - 4}
+                          fill="none"
+                          stroke="#ef4444"
+                          strokeWidth="1.5"
+                          opacity="0.8"
+                          strokeDasharray="6,3"
+                          className="animate-pulse"
+                        />
+                      )}
+                      {/* Density count tag for segments with cars */}
+                      {seg.count > 0 && (
+                        <text
+                          x={seg.x + seg.width * 0.5}
+                          y={seg.y + seg.height * 0.5 + 3}
+                          fill={seg.densityLevel === 'high' ? '#fecaca' : seg.densityLevel === 'moderate' ? '#fef08a' : '#a7f3d0'}
+                          fontSize="8"
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          opacity="0.8"
+                        >
+                          {seg.count} {seg.count === 1 ? 'car' : 'cars'}
+                        </text>
+                      )}
+                    </g>
+                  ))}
+                </g>
+              )}
+
+              {/* 2. Radial Thermal Heat Aura Hotspots around Motorists */}
+              {(heatmapMode === 'combined' || heatmapMode === 'hotspots') && (
+                <g opacity="0.85" style={{ mixBlendMode: 'screen' }}>
+                  {motorists.map((car) => {
+                    const laneCount = car.currentLane === 'left' ? laneCounts.left : car.currentLane === 'center' ? laneCounts.center : laneCounts.right;
+                    const heatRadius = laneCount >= 3 ? 72 : laneCount === 2 ? 58 : 46;
+                    return (
+                      <circle
+                        key={`heat-aura-${car.id}`}
+                        cx={car.position.x}
+                        cy={car.position.y}
+                        r={heatRadius}
+                        fill="url(#thermalHeatGrad)"
+                        filter="url(#heatBlur)"
+                        opacity={laneCount >= 3 ? 0.95 : 0.72}
+                        className="transition-all duration-300 pointer-events-none"
+                      />
+                    );
+                  })}
+                </g>
+              )}
+            </g>
+          )}
 
           {/* Road Curb & Shoulder lines */}
           <line
@@ -529,23 +800,51 @@ export const CorridorMap: React.FC<CorridorMapProps> = ({
       </div>
 
       {/* Corridor Legend & Real-Time Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-slate-950/90 border-t border-slate-800 text-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-rose-500 border border-white" />
-          <span className="text-slate-400">Emergency Unit ({ambulance.speedKmh} km/h)</span>
+      <div className="flex flex-col gap-2 p-3 bg-slate-950/90 border-t border-slate-800 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded bg-rose-500 border border-white" />
+            <span className="text-slate-400">Emergency Unit ({ambulance.speedKmh} km/h)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded bg-sky-500 border border-sky-300" />
+            <span className="text-slate-400">Your Vehicle ({userVehicle?.speedKmh} km/h)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded bg-emerald-700 border border-emerald-400" />
+            <span className="text-slate-400">Yielded Motorist (Safe Shoulder)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded bg-emerald-500" />
+            <span className="text-slate-400">Traffic Preemption (Green Wave)</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-sky-500 border border-sky-300" />
-          <span className="text-slate-400">Your Vehicle ({userVehicle?.speedKmh} km/h)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-emerald-700 border border-emerald-400" />
-          <span className="text-slate-400">Yielded Motorist (Safe Shoulder)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-emerald-500" />
-          <span className="text-slate-400">Traffic Preemption (Green Wave)</span>
-        </div>
+
+        {/* Real-Time Traffic Density Heatmap Scale Legend */}
+        {showHeatmap && (
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 mt-1 border-t border-slate-800/60 text-[11px] font-mono text-slate-400">
+            <div className="flex items-center gap-2">
+              <Flame className="w-3.5 h-3.5 text-rose-500" />
+              <span className="text-slate-300 font-semibold">{t.heatmap.intensity}:</span>
+              <span>{lang === 'gu' ? 'વાહનોની સંખ્યા મુજબ લેન ડેન્સિટી' : 'Motorists / Lane Density Scale'}</span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-emerald-500/60 border border-emerald-400" />
+                <span>{lang === 'gu' ? '0-1 વાહન (મુક્ત)' : '0-1 Cars (Low)'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-amber-500/70 border border-amber-400" />
+                <span>{lang === 'gu' ? '2 વાહનો (મધ્યમ)' : '2 Cars (Moderate)'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-rose-500/80 border border-rose-400 animate-pulse" />
+                <span className="text-rose-300 font-bold">{lang === 'gu' ? '3+ વાહનો (જામ/અવરોધ)' : '3+ Cars (Congested)'}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

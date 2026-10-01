@@ -79,6 +79,17 @@ export interface Translations {
   };
   hospital: string;
   unit: string;
+  heatmap: {
+    toggle: string;
+    title: string;
+    high: string;
+    moderate: string;
+    low: string;
+    laneDensity: string;
+    congested: string;
+    clear: string;
+    intensity: string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -161,6 +172,17 @@ export const translations: Record<Language, Translations> = {
     },
     hospital: "TRAUMA CENTER",
     unit: "PARAMEDIC-104",
+    heatmap: {
+      toggle: "Traffic Heatmap",
+      title: "Real-Time Traffic Density Heatmap",
+      high: "High Density (Congested)",
+      moderate: "Moderate Density",
+      low: "Low Density (Free Flow)",
+      laneDensity: "Lane Density",
+      congested: "CONGESTED",
+      clear: "CLEAR",
+      intensity: "Density Heatmap Layer",
+    },
   },
   gu: {
     appName: "ઓરાપલ્સ ઇમરજન્સી કોરિડોર",
@@ -241,5 +263,16 @@ export const translations: Record<Language, Translations> = {
     },
     hospital: "ટ્રોમા સેન્ટર હોસ્પિટલ",
     unit: "પેરામેડિક-૧૦૪",
+    heatmap: {
+      toggle: "ટ્રાફિક હીટમેપ",
+      title: "રિયલ-ટાઇમ ટ્રાફિક ઘનતા હીટમેપ",
+      high: "અતિશય ટ્રાફિક (જામ)",
+      moderate: "મધ્યમ ટ્રાફિક",
+      low: "હળવો ટ્રાફિક (મુક્ત)",
+      laneDensity: "લેન મુજબ ઘનતા",
+      congested: "ટ્રાફિક જામ",
+      clear: "માર્ગ ખુલ્લો",
+      intensity: "ડેન્સિટી હીટમેપ લેયર",
+    },
   },
 };
