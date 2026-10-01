@@ -1,0 +1,218 @@
+import { EmergencyVehicle, MotoristVehicle, TrafficSignal, CorridorAlertLog, LanePosition } from '../types/emergency';
+
+export const ROAD_LENGTH = 1800; // SVG coordinate units (corresponds to ~1.8 km)
+export const CORRIDOR_Y = 320; // Road center Y coordinate
+export const LANE_HEIGHT = 44; // Height per lane
+
+export const INITIAL_EMERGENCY_VEHICLE: EmergencyVehicle = {
+  id: 'unit-med-104',
+  unitCode: 'PARAMEDIC-104',
+  name: 'Mobile Intensive Care Unit 104',
+  vehicleType: 'ambulance',
+  driverName: 'Officer Marcus Vance',
+  callSign: 'Rescue-One',
+  origin: 'South Quarter Crossing',
+  destination: 'St. Jude Metropolitan Trauma Center',
+  patientCondition: 'Acute Coronary Syndrome · Priority 1',
+  urgency: 'code_3_critical',
+  speedKmh: 78,
+  position: { x: 120, y: CORRIDOR_Y },
+  headingDeg: 90, // Facing East
+  targetProgress: 6.6,
+  alertRadiusMeters: 750,
+  sirenActive: true,
+  sirenMode: 'yelp',
+  corridorClearancePercent: 88,
+  motoristsNotifiedCount: 7,
+  timeToDestinationMin: 3.4,
+};
+
+export const INITIAL_MOTORISTS: MotoristVehicle[] = [
+  {
+    id: 'car-user',
+    licensePlate: '7XKD-921',
+    model: 'Tesla Model 3 (You)',
+    type: 'user_car',
+    position: { x: 580, y: CORRIDOR_Y }, // In center lane ahead of ambulance
+    speedKmh: 48,
+    currentLane: 'center',
+    targetLane: 'center',
+    headingDeg: 90,
+    isUserVehicle: true,
+    status: 'alerted',
+    distanceToAmbulanceMeters: 460,
+    bearingFromUserToAmbulance: 270, // Behind
+    relativePosition: 'behind',
+    alertLevel: 'critical_yield',
+    timeToInterceptSec: 18,
+    hasYielded: false,
+  },
+  {
+    id: 'car-2',
+    licensePlate: '4MNP-112',
+    model: 'Honda CR-V',
+    type: 'suv',
+    position: { x: 420, y: CORRIDOR_Y - LANE_HEIGHT }, // Left lane ahead
+    speedKmh: 50,
+    currentLane: 'left',
+    targetLane: 'right',
+    headingDeg: 90,
+    status: 'clearing',
+    distanceToAmbulanceMeters: 300,
+    bearingFromUserToAmbulance: 270,
+    relativePosition: 'behind',
+    alertLevel: 'critical_yield',
+    timeToInterceptSec: 12,
+    hasYielded: true,
+  },
+  {
+    id: 'car-3',
+    licensePlate: '9BRL-840',
+    model: 'Toyota Camry',
+    type: 'sedan',
+    position: { x: 740, y: CORRIDOR_Y }, // Center lane further ahead
+    speedKmh: 52,
+    currentLane: 'center',
+    targetLane: 'right',
+    headingDeg: 90,
+    status: 'alerted',
+    distanceToAmbulanceMeters: 620,
+    bearingFromUserToAmbulance: 270,
+    relativePosition: 'behind',
+    alertLevel: 'caution',
+    timeToInterceptSec: 25,
+    hasYielded: false,
+  },
+  {
+    id: 'car-4',
+    licensePlate: '5ZTU-303',
+    model: 'Ford F-150',
+    type: 'truck',
+    position: { x: 910, y: CORRIDOR_Y + LANE_HEIGHT }, // Right lane
+    speedKmh: 45,
+    currentLane: 'right',
+    targetLane: 'right',
+    headingDeg: 90,
+    status: 'cleared',
+    distanceToAmbulanceMeters: 790,
+    bearingFromUserToAmbulance: 270,
+    relativePosition: 'behind',
+    alertLevel: 'safe',
+    timeToInterceptSec: 32,
+    hasYielded: true,
+  },
+  {
+    id: 'car-5',
+    licensePlate: '8WYQ-774',
+    model: 'Hyundai Ioniq 5',
+    type: 'suv',
+    position: { x: 1100, y: CORRIDOR_Y },
+    speedKmh: 55,
+    currentLane: 'center',
+    targetLane: 'center',
+    headingDeg: 90,
+    status: 'normal',
+    distanceToAmbulanceMeters: 980,
+    bearingFromUserToAmbulance: 270,
+    relativePosition: 'out_of_range',
+    alertLevel: 'safe',
+    timeToInterceptSec: 42,
+    hasYielded: false,
+  },
+  {
+    id: 'car-6',
+    licensePlate: '2CDE-560',
+    model: 'BMW 330i',
+    type: 'sedan',
+    position: { x: 1350, y: CORRIDOR_Y - LANE_HEIGHT },
+    speedKmh: 60,
+    currentLane: 'left',
+    targetLane: 'left',
+    headingDeg: 90,
+    status: 'normal',
+    distanceToAmbulanceMeters: 1230,
+    bearingFromUserToAmbulance: 270,
+    relativePosition: 'out_of_range',
+    alertLevel: 'safe',
+    timeToInterceptSec: 54,
+    hasYielded: false,
+  },
+  {
+    id: 'car-7',
+    licensePlate: '6VNM-419',
+    model: 'Mercedes Sprinter',
+    type: 'truck',
+    position: { x: 1520, y: CORRIDOR_Y + LANE_HEIGHT },
+    speedKmh: 42,
+    currentLane: 'right',
+    targetLane: 'right',
+    headingDeg: 90,
+    status: 'normal',
+    distanceToAmbulanceMeters: 1400,
+    bearingFromUserToAmbulance: 270,
+    relativePosition: 'out_of_range',
+    alertLevel: 'safe',
+    timeToInterceptSec: 62,
+    hasYielded: true,
+  },
+];
+
+export const INITIAL_TRAFFIC_SIGNALS: TrafficSignal[] = [
+  {
+    id: 'sig-1',
+    name: '2nd Avenue & Grand Ave',
+    position: { x: 480, y: CORRIDOR_Y },
+    roadAxis: 'cross_street',
+    state: 'preempted_green',
+    preemptionActive: true,
+    countdownSec: 22,
+  },
+  {
+    id: 'sig-2',
+    name: '5th Avenue & Grand Ave',
+    position: { x: 980, y: CORRIDOR_Y },
+    roadAxis: 'cross_street',
+    state: 'yellow',
+    preemptionActive: false,
+    countdownSec: 4,
+  },
+  {
+    id: 'sig-3',
+    name: '8th Avenue & Hospital Way',
+    position: { x: 1440, y: CORRIDOR_Y },
+    roadAxis: 'cross_street',
+    state: 'red',
+    preemptionActive: false,
+    countdownSec: 15,
+  },
+];
+
+export const INITIAL_LOGS: CorridorAlertLog[] = [
+  {
+    id: 'log-1',
+    timestamp: '08:14:02',
+    type: 'broadcast',
+    unit: 'PARAMEDIC-104',
+    message: 'Code-3 V2X Emergency Corridor broadcast activated (Radius 750m).',
+  },
+  {
+    id: 'log-2',
+    timestamp: '08:14:15',
+    type: 'signal_preemption',
+    unit: 'TRAFFIC-CTRL',
+    message: 'Preemption granted: 2nd Avenue intersection forced GREEN WAVE.',
+  },
+  {
+    id: 'log-3',
+    timestamp: '08:14:28',
+    type: 'yield_confirmed',
+    unit: 'CAR-4MNP',
+    message: 'Motorist #4MNP confirmed safe lane change to Right Shoulder.',
+  },
+];
+
+export function getLaneY(lane: LanePosition): number {
+  if (lane === 'left') return CORRIDOR_Y - LANE_HEIGHT;
+  if (lane === 'right') return CORRIDOR_Y + LANE_HEIGHT;
+  return CORRIDOR_Y; // Center lane
+}

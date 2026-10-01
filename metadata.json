@@ -1,0 +1,6 @@
+{
+  "name": "AuraPulse Emergency Corridor Pre-Alert",
+  "description": "Real-time emergency vehicle pre-alert system notifying nearby motorists to clear traffic lanes before sirens are heard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
